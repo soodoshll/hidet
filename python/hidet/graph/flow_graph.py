@@ -107,9 +107,10 @@ def forward_context() -> GraphForwardContext:
 class FlowGraph:
     """The computation graph representation."""
 
-    def __init__(self, outputs: Sequence[Tensor], inputs: Optional[Sequence[Tensor]] = None, nodes=None):
+    def __init__(self, outputs: Sequence[Tensor], inputs: Optional[Sequence[Tensor]] = None, dependents: Optional[Sequence[Operator]] = None, nodes=None):
         self.outputs: List[Tensor] = list(outputs)
         self.inputs: Optional[List[Tensor]] = list(inputs) if inputs is not None else None
+        self.dependents: Optional[List[Operator]] = list(dependents) if dependents is not None else None
         self._nodes: Optional[List[Operator]] = nodes
         self._usage_count: Optional[Dict[Tensor, int]] = None
         self.update_nodes()
@@ -323,7 +324,7 @@ class FlowGraph:
         return ret
 
     def update_nodes(self):
-        free_vars, self._nodes, self._usage_count = self._analyze(self.outputs)
+        free_vars, self._nodes, self._usage_count = self._analyze(self.outputs, self.dependents)
         if self.inputs:
             non_bound_free_vars: Set[Tensor] = set(free_vars) - set(self.inputs)
             if len(non_bound_free_vars) > 0:
@@ -443,7 +444,7 @@ class FlowGraph:
             return results
 
     @staticmethod
-    def _analyze(outputs: List[Tensor]) -> Tuple[List[Tensor], List[Operator], Dict[Tensor, int]]:
+    def _analyze(outputs: List[Tensor], dependents: Optional[List[Tensor]]=None) -> Tuple[List[Tensor], List[Operator], Dict[Tensor, int]]:
         """
         Analyze the implicit flow graph by backwards traversing the graph from given outputs.
 
@@ -466,6 +467,8 @@ class FlowGraph:
         """
         free_vars = []
         nodes: List[Operator] = []
+        if dependents is None:
+            dependents = []
         # find out all nodes
         all_nodes: Set[Operator] = set()
 
@@ -481,26 +484,65 @@ class FlowGraph:
         for ot in outputs:
             if ot.trace:
                 find_all_nodes(ot.op)
+        
+        for dep in dependents:
+            find_all_nodes(dep)
 
         # topological sort
         out_degree: Dict[Operator, int] = {u: 0 for u in all_nodes}
+
         for u in all_nodes:
             for it in u.inputs:
                 if it.op is None or it.op not in all_nodes:
                     continue
                 out_degree[it.op] += 1
-        for u in outputs:
-            if u.op:
-                out_degree[u.op] += 1
+        
+        out_op = [u.op for u in outputs]
+        out_and_deps = out_op + dependents
+        for u in out_and_deps:
+            out_degree[u] += 1
 
         stack: List[Operator] = []
-        for u in outputs:
-            if u.op:
-                out_degree[u.op] -= 1
-                if out_degree[u.op] == 0:
-                    stack.append(u.op)
-        while len(stack) > 0:
-            op = stack.pop()
+        # A separate stack for nodes with the priority attribute.
+        prioritized_stack: List[Operator] = []
+        def _add_to_stack(op):
+            if 'priority' in op.attrs:
+                prioritized_stack.append(op)
+            else:
+                stack.append(op)
+        
+        def _pop_from_stack():
+            # In each iteration we first check if there's any node without priority attr in the stack,
+            # in other words, those nodes have the lowest priority.
+            if len(stack) > 0:
+                return stack.pop()
+            if len(prioritized_stack) == 0:
+                return None
+            # find the lowest-prioritized node
+            idx_min = -1
+            priority_min = 0
+            for i, op in enumerate(prioritized_stack):
+                if idx_min < 0 or op.attrs['priority'] < priority_min:
+                    idx_min = i
+                    priority_min = op.attrs['priority']
+            ret = prioritized_stack[idx_min]
+            del prioritized_stack[idx_min]
+            return ret
+
+        for u in out_and_deps:
+            out_degree[u] -= 1
+            if out_degree[u] == 0:
+                _add_to_stack(u)
+
+        current_priority = None
+        while len(stack) > 0 or len(prioritized_stack) > 0:
+            op = _pop_from_stack()
+            if 'priority' in op.attrs:
+                priority = op.attrs['priority']
+                if current_priority is not None and priority < current_priority:
+                    raise ValueError("Priority of nodes conflicts with the data flow.")
+                current_priority = priority
+                print(current_priority)
             nodes.append(op)
             for it in op.inputs:
                 if it.op is None:
@@ -514,7 +556,7 @@ class FlowGraph:
                         raise ValueError('The trace is broken')
                     out_degree[it.op] -= 1
                     if out_degree[it.op] == 0:
-                        stack.append(it.op)
+                        _add_to_stack(it.op)
         nodes = list(reversed(nodes))
         assert len(nodes) == len(all_nodes), 'all_nodes {} topo_order {}'.format(len(all_nodes), len(nodes))
 
@@ -577,7 +619,7 @@ class FlowGraph:
                     outp.cuda_()
 
 
-def trace_from(tensor: Union[Tensor, List[Tensor]], inputs: Optional[Union[Tensor, List[Tensor]]] = None) -> FlowGraph:
+def trace_from(tensor: Union[Tensor, List[Tensor]], inputs: Optional[Union[Tensor, List[Tensor]]] = None, dependents: List[Tensor]=None) -> FlowGraph:
     """
     Trace the flow graph given the output tensor(s).
 
@@ -615,7 +657,7 @@ def trace_from(tensor: Union[Tensor, List[Tensor]], inputs: Optional[Union[Tenso
             inputs = [inputs]
         else:
             inputs = list(inputs)
-    return FlowGraph(outputs, inputs).update_nodes()
+    return FlowGraph(outputs, inputs, dependents).update_nodes()
 
 
 def save_graph(graph: FlowGraph, fname: str):

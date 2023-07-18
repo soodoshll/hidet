@@ -161,10 +161,11 @@ def reduce_scatter(x: Tensor, op: str, comm_id: int = 0) -> Tensor:
         raise RuntimeError("NCCL only supports CUDA tensors")
     return ReduceScatterOp(x, op, comm_id).outputs[0]
 
-
-# We haven't decided how to integrate asymmetric communication functions into computational graphs
-# When a tensor is sent to other peers, it should be added to the output. Otherwise it won't be traced
-# But which part should do this?
+class SendTask(Task):
+    def __init__(self, x: TensorNode, dst: int, comm_id: int = 0):
+        if not isinstance(x.type.layout, RowMajorLayout):
+            raise RuntimeError("Communication operations only support row major layout.")
+        
 def send(x: Tensor, peer: int, comm_id: int = 0) -> None:
     raise NotImplementedError()
 

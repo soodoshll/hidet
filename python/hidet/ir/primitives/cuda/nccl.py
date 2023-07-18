@@ -84,3 +84,27 @@ def reduce_scatter(sendbuff: Expr, recvbuff: Expr, recvcount: Expr, dtype: DataT
         comm,
         get_cuda_stream(),
     )
+
+def send(sendbuff: Expr, count: Expr, dtype: DataType, peer: int, comm_id: int):
+    comm = get_nccl_comm(comm_id)
+    return BlackBoxStmt(
+        'ncclSend({}, {}, (ncclDataType_t){}, {} (ncclComm_t){}, (cudaStream_t){});',
+        sendbuff,
+        count,
+        int(dtype_to_nccl(dtype)),
+        peer,
+        comm,
+        get_cuda_stream(),
+    )
+
+def recv(recvbuff: Expr, count: Expr, dtype: DataType, peer: int, comm_id: int):
+    comm = get_nccl_comm(comm_id)
+    return BlackBoxStmt(
+        'ncclRecv({}, {}, (ncclDataType_t){}, {} (ncclComm_t){}, (cudaStream_t){});',
+        recvbuff,
+        count,
+        int(dtype_to_nccl(dtype)),
+        peer,
+        comm,
+        get_cuda_stream(),
+    )
