@@ -19,6 +19,11 @@ class GPT2Generator:
         import hidet.cuda.graph
 
         graph: FlowGraph = gpt2(seq_length=max_num_tokens, model_size=model_size, use_fp16=use_fp16)
+        with hidet.graph.PassContext() as ctx:
+            if use_fp16:
+                ctx.set_precision('float16')
+                ctx.set_mma('mma')
+            graph = hidet.graph.optimize(graph)
         self.cuda_graph: hidet.cuda.graph.CudaGraph = graph.cuda_graph()
         self.encoder = get_encoder()
         self.max_num_tokens = max_num_tokens
