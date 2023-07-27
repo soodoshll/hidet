@@ -84,7 +84,7 @@ def gpt2_forward(ids, wte, wpe, blocks, ln_f, n_head):  # [n_seq] -> [n_seq, n_v
     return x
 
 
-def gpt2(model_size: str = "124M", seq_length: Optional[int] = 1000, use_fp16=False) -> FlowGraph:
+def gpt2(model_size: str = "124M", seq_length: Optional[int] = 1000, use_fp16=False, opt=True) -> FlowGraph:
     cache_dir = hidet.utils.cache_dir('./examples/gpt-2/')
     model_name = 'model_{}_seq{}_{}.hf'.format(model_size, seq_length, 'fp16' if use_fp16 else 'fp32')
     hf_path = os.path.join(cache_dir, model_name)
@@ -99,11 +99,12 @@ def gpt2(model_size: str = "124M", seq_length: Optional[int] = 1000, use_fp16=Fa
         ids = hidet.symbol([seq_length], dtype='int32', device='cuda')
         out = gpt2_forward(ids, **params, n_head=hparams["n_head"])
         graph = hidet.trace_from(out, inputs=[ids])
-        with hidet.graph.PassContext() as ctx:
-            if use_fp16:
-                ctx.set_precision('float16')
-                ctx.set_mma('mma')
-            graph_opt = hidet.graph.optimize(graph)
+        if opt:
+            with hidet.graph.PassContext() as ctx:
+                if use_fp16:
+                    ctx.set_precision('float16')
+                    ctx.set_mma('mma')
+                graph = hidet.graph.optimize(graph)
 
-        hidet.save_graph(graph_opt, hf_path)
-        return graph_opt
+        hidet.save_graph(graph, hf_path)
+        return graph
