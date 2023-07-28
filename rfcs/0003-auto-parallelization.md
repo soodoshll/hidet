@@ -135,8 +135,11 @@ according to their specification, when after being reduced by the reduction func
 tensors of the operator are also sharded as the output specification. More formally
 
 $$
-o_i = op(inputs)_i \\
-out_i = reduce\_fn_i(o_i)
+o_i = op(inputs)_i
+$$
+
+$$
+out_i = \text{reduce-fn}_i(o_i)
 $$
 
 Take matrix multiplication as an example, for a matmul $C_{i, j}=\sum_k A_{i, k} x B_{k, j}$, there
@@ -162,8 +165,8 @@ automatic specification discovery tool.
 
 In our design, an operator can be annotated with any valid sharding specifications. It will lead to
 a problem that the tensor required as an input by other operators can have different sharding
-specification as where the tensor is produced as an output. Therefore, a `connect` function should
-be implemented to figure out the correct conversion operation (other slicing or commucation ops),
+specifications as where the tensor is produced as an output. Therefore, a `connect` function should
+be implemented to figure out the correct conversion operation (other slicing or communication ops),
 and estimate the required communication cost (which is used to find the optimal sharding strategy).
 ```python
 comm_op, comm_cost = connect(src_tensor_spec, dst_tensor_spec) 
@@ -171,7 +174,7 @@ comm_op, comm_cost = connect(src_tensor_spec, dst_tensor_spec)
 
 ## Sharding Strategy Searching
 
-We follow alpa's practice to model searching the optimal sharding strategy as an ILP problem. The
+We follow Alpa's[1] practice to model searching the optimal sharding strategy as an ILP problem. The
 coefficients required by ILP are obtained by the `connect` function mentioned in the last section.
 
 It will produce a dict `Dict[Operator, OpShardSpec]` mapping each op to its assigned sharding
@@ -243,3 +246,8 @@ Many other potential questions remain undiscovered and will show up during the d
 [future-possibilities]: #future-possibilities
 
 - How to support multi-machine-multi-gpu settings?
+
+
+# Reference
+
+[1] Zheng, Lianmin, et al. "Alpa: Automating inter-and {Intra-Operator} parallelism for distributed deep learning." 16th USENIX Symposium on Operating Systems Design and Implementation (OSDI 22). 2022.
