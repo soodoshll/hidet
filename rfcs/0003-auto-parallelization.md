@@ -58,6 +58,24 @@ def init_distributed_inference(
     hidet.distributed.init(meta_info)
 ```
 
+`distributed_config` and `optimization_config` are two dictionaries that contain options for
+partitioning and compilation.
+
+``` python
+optimization_config = {
+  "space": 2,
+  "reduce_type": "f16",
+  "recompile": False,
+  ...
+}
+
+distributed_config = {
+  "ngpus": 2,
+  "parallel_type": "tp", # now we only support tensor parallel
+}
+
+```
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
@@ -68,11 +86,6 @@ environment.
 
 ``` python
 hidet.distributed.partition(g: FlowGraph, distributed_config: dict)
-distributed_config = {
-  "ngpus": 2,
-  "parallel_type": "tp",
-  "out_dir": "./partitions/"
-}
 ```
 
 It carries out two steps: 1) Find the optimal partitioning strategy and annotate the sharding
@@ -177,6 +190,18 @@ comm_op, comm_cost = connect(src_tensor_spec, dst_tensor_spec)
 
 We follow Alpa's[1] practice to model searching the optimal sharding strategy as an ILP problem. The
 coefficients required by ILP are obtained by the `connect` function mentioned in the last section.
+The ILP is formed as:
+
+$$
+\min_{s} \sum_{v\in V} s_v^\top(c_v + d_v) + \sum_{(v,u)\in E}s_v^\top R_{v,u} s_u
+$$
+
+where $V$ stands for nodes(operator), $E$ for edges between nodes, $s_v$ for the one-hot vector
+representing which sharding specification is chosen for the operator $v$. $c_v$ is the communication
+cost of the $v$ (more specifically, it is a vector of which each entry is the communication cost of
+a sharding specification). $d_v$ is the computation cost for $v$, and Alpa assumes they are all
+zero. $R_{v,u}$ is the communication cost for shard conversion between $v$ and $u$, which is given
+by the `connect` function.
 
 It will produce a dict `Dict[Operator, OpShardSpec]` mapping each op to its assigned sharding
 specification, which is used in parameter sharding and communication op injection.
@@ -239,6 +264,11 @@ can always be reconstructed when needed.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
+
+- How to represent reduction functions? Should we use reduce-scatter by default? Since all-reduce
+  can be decomposed as reduce-scatter and all-gather, and the latter can be covered by the `connect`
+  function. Currently we use enum to distinguish these two reduction functions.
+- Should we consider modeling computation cost in the ILP?
 
 Many other potential questions remain undiscovered and will show up during the development.
 
