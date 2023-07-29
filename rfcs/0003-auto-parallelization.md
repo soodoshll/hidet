@@ -88,7 +88,7 @@ layers, namely tensor sharding specification and operator sharding specification
 
 Tensor sharding specfications specify how to shard a tensor, such as row-wise or column-wise.
 
-Following Alpa’s design, we assume that the possible sharding space should be **aligned with the
+Following Alpa’s design[1], we assume that the possible sharding space should be **aligned with the
 real hardware hierarchy**. The number of sharding levels should not exceed the depth of the hardware
 hierarchy, and the number of shards at each level should be equal to the number of devices at that
 level. For example, for a 4x4 multi-machine-multi-GPU cluster, the possible sharding specifications
@@ -113,7 +113,7 @@ class TensorShardSpec:
 
 Currently, we mainly consider 1D partitioning, which corresponds to single-machine-multiple-GPU
 settings, so we will provide an API to create a tensor sharding specification by merely specifying
-which dimention to be sharded.
+which dimension to be sharded.
 
 
 ### Operator Sharding Specification
@@ -158,14 +158,14 @@ of all devices to get the final result. It can either be `all_reduce`, after whi
 have a copy of the complete result. or it can be `reduce_scatter`, after which each device will have
 a shard of the final result.
 
-We can either manually write sharding specifications for each type of op (as in Alpa), or build an
+We can either manually write sharding specifications for each type of op (as in Alpa[1]), or build an
 automatic specification discovery tool.
 
 ## Shared Operator Connection
 
 In our design, an operator can be annotated with any valid sharding specifications. It will lead to
 a problem that the tensor required as an input by other operators can have different sharding
-specifications as where the tensor is produced as an output. Therefore, a `connect` function should
+specifications where the tensor is produced as an output. Therefore, a `connect` function should
 be implemented to figure out the correct conversion operation (other slicing or communication ops),
 and estimate the required communication cost (which is used to find the optimal sharding strategy).
 ```python
@@ -224,7 +224,7 @@ One assumption is partial results should be reduced immediately after the comput
 that’s why we bind the reduction of partial results with the op sharding specs. Allowing partial
 results to exist in the computational graph is dangerous and it’s hard to guarantee its correctness.
 For example, assuming $s = s_1 + s_2$ where $s_1$ and $s_2$ are the partial results, we have 
-$ (s + 1) \neq (s_1 + 1) + (s_2 + 1)$. Even the simplest element-wise operator cannot be fused with 
+$(s + 1) \neq (s_1 + 1) + (s_2 + 1)$. Even the simplest element-wise operator cannot be fused with 
 partial results, so we assume separating partial results and reduction would not introduce any useful
 optimizations.
 
