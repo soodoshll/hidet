@@ -27,7 +27,7 @@ partitions (more specifically, multiple `FlowGraphs`), and save them into the di
 can be optimized and compiled independently.
 ``` python
 g: FlowGraph = build_flow_graph_from_original_model(...)              
-hidet.distributed.partition(g, distributed_config) # out_dir is specified in distributed_config
+hidet.distributed.partition(g, distributed_config, out_dir)
 ```
 
 Distributed inference can be launched in a multi-processing paradigm. Each process occupies a GPU
@@ -45,11 +45,11 @@ def init_distributed_inference(
     if rank == 0:
       g: FlowGraph = build_flowgraph()
       # generates multiple flowgraphs and saves to disk
-      hidet.distributed.partition(g, distrbuted_config)
+      hidet.distributed.partition(g, distrbuted_config, out_dir)
     
     hidet.distributed.barrier()
     model, meta_info = \
-          hidet.distributed.load_partition(distrbuted_config, rank)
+          hidet.distributed.load_partition(out_dir, rank)
 
     # optimize the model
     opt_model = optimize(optimization_config)
@@ -91,11 +91,12 @@ Tensor sharding specfications specify how to shard a tensor, such as row-wise or
 Following Alpa’s design[1], we assume that the possible sharding space should be **aligned with the
 real hardware hierarchy**. The number of sharding levels should not exceed the depth of the hardware
 hierarchy, and the number of shards at each level should be equal to the number of devices at that
-level. For example, for a 4x4 multi-machine-multi-GPU cluster, the possible sharding specifications
-are (4x4, 1), (4(machine), 4(gpus)), (4(gpus), 4(machines)), (1, 4x4). We do not consider (2, 8) or
-(8, 2). Therefore, using R or Si is sufficient since the number of shards is determined by the
-number of devices. These sharding specifications can be written as $(S^{0,1}, R)$, $(S^0, S^1)$,
-$(S^1, S^0)$, $(R, S^{0,1})$.
+level. Therefore, using R or Si is sufficient since the number of shards is determined by the number
+of devices. For example, for a 2x2 multi-machine-multi-GPU cluster, the possible sharding
+ specifications are shown in the following figure. These sharding specifications can be written as $(S^{0,1}, R)$, $(S^0,
+S^1)$, $(S^1, S^0)$, $(R, S^{0,1})$.
+
+![sharding example](assets/0003/example.png)
 
 For disambiguation, we adopt a convention that **dimension** refers to the dimension or axis of the
 tensor, and **mesh axis** refers to the axis of hardware hierarchy.
