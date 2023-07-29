@@ -106,8 +106,8 @@ real hardware hierarchy**. The number of sharding levels should not exceed the d
 hierarchy, and the number of shards at each level should be equal to the number of devices at that
 level. Therefore, using R or Si is sufficient since the number of shards is determined by the number
 of devices. For example, for a 2x2 multi-machine-multi-GPU cluster, the possible sharding
- specifications are shown in the following figure. These sharding specifications can be written as $(S^{0,1}, R)$, $(S^0,
-S^1)$, $(S^1, S^0)$, $(R, S^{0,1})$.
+ specifications are shown in the following figure (M means machine and G means GPU).
+ These sharding specifications can be written as $(S^{0,1}, R)$, $(S^0, S^1)$, $(S^1, S^0)$, $(R, S^{0,1})$.
 
 ![sharding example](assets/0003/example.png)
 
@@ -230,7 +230,7 @@ include the following cases in our search space:
 
 - Full inputs produce partial outputs. For example, we have a 1D vector $x$ and we want to calculate
   $x+1$. If we want only the first half of the output, it is valid to modify the original op so that
-  it takes the full $x$ as input and only produce the first half $x+1$. If we do not eliminate this
+  it takes the full $x$ as input and only produces the first half $x+1$. If we do not eliminate this
   case, then $R \rightarrow S$ will also be a valid op sharding specification. Though theoretically
   valid, actually carrying out the code modification (involving index transformation, etc) is
   non-trivial. Also this case can be covered by using `connect` function to slice the full inputs to
@@ -268,7 +268,8 @@ can always be reconstructed when needed.
 - How to represent reduction functions? Should we use reduce-scatter by default? Since all-reduce
   can be decomposed as reduce-scatter and all-gather, and the latter can be covered by the `connect`
   function. Currently we use enum to distinguish these two reduction functions.
-- Should we consider modeling computation cost in the ILP?
+- Should we consider modeling computation cost in the ILP? For example, if we're using GPUs with large
+  memory and low computing capability we may still want to shard computation-intensive operators.
 
 Many other potential questions remain undiscovered and will show up during the development.
 
