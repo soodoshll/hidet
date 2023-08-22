@@ -108,7 +108,7 @@ class AllReduce(ReduceFunction):
         return hidet.ops.distributed.all_reduce(tensor, self.op)
 
     def cost(self, tensor: Tensor) -> int:
-        return 2 * tensor.nbytes
+        return 2 * tensor.nbytes + 1000
 
 
 class ReduceScatter(ReduceFunction):
@@ -120,7 +120,7 @@ class ReduceScatter(ReduceFunction):
         return hidet.ops.distributed.reduce_scatter(tensor, self.op)
 
     def cost(self, tensor: Tensor) -> int:
-        return tensor.nbytes
+        return tensor.nbytes + 1000
 
 
 class OpShardSpec:
@@ -231,6 +231,6 @@ def connect(tensor: Tensor, produce_spec: TensorShardSpec, consume_spec: TensorS
     if produce_spec.is_full():
         return (ReshardSlice(produce_spec, consume_spec), 0)
     if consume_spec.is_full():
-        return (ReshardGather(produce_spec, consume_spec), tensor.nbytes)
+        return (ReshardGather(produce_spec, consume_spec), tensor.nbytes + 1000)
     else:
-        return (ReshardGatherSlice(produce_spec, consume_spec), tensor.nbytes)
+        return (ReshardGatherSlice(produce_spec, consume_spec), tensor.nbytes + 1000)

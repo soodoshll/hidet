@@ -14,9 +14,11 @@ from typing import Union, Dict
 import os
 
 import hidet
-from hidet.graph import FlowGraph, Tensor
+from hidet.graph import FlowGraph, Tensor, Operator
 from hidet.graph.graph_utils.functors import GraphCloneRewriter
 from hidet.runtime.device import Device, instantiate_device
+
+from .partition.shard import OpShardSpec
 
 
 class GraphMover(GraphCloneRewriter):
@@ -62,3 +64,4 @@ def copy_flowgraph_to(graph: FlowGraph, device: Union[str, Device]) -> FlowGraph
 def load_partition(out_dir: str, rank: int, device: Union[str, Device] = 'cuda'):
     graph = hidet.load_graph(os.path.join(out_dir, f"part{rank}.graph"))
     return copy_flowgraph_to(graph, device)
+

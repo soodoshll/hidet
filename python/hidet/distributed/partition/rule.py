@@ -14,6 +14,7 @@ from typing import List, Dict
 from itertools import product, chain
 
 from hidet.graph import Operator
+from hidet.graph.ops.matmul import MatmulOp
 from hidet.ir import TensorElement, Var, Expr
 from hidet.ir.compute import GridCompute, ReduceCompute, ArgReduceCompute, TensorInput
 from hidet.ir.functors import ExprRewriter, ComputeRewriter
@@ -143,7 +144,7 @@ class DataDependencyAnalyzer:
 
 
 
-def op_shard_rule_search(op: Operator, num_shards: int) -> List[OpShardSpec]:
+def op_shard_rule_search(op: Operator, num_shards: int, force_shard_matmul=True) -> List[OpShardSpec]:
     # Now we only search for 1D partition
     inputs = op.inputs
     outputs = op.outputs
@@ -170,6 +171,8 @@ def op_shard_rule_search(op: Operator, num_shards: int) -> List[OpShardSpec]:
 
     # enumerate all possible input shardings. -1 means duplicate
     for in_shard_dims in product(*(chain([None], range(len(i.shape))) for i in inputs)):
+        if force_shard_matmul and isinstance(op, MatmulOp) and all((i is None for i in in_shard_dims)):
+            continue
         # Get a tile of each input tensor according to the input sharding
         # And compute the output shape
         try:

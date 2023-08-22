@@ -16,6 +16,7 @@ import tqdm
 from mip import Model, BINARY, xsum, minimize, OptimizationStatus
 
 from hidet.graph import FlowGraph, Operator, Tensor
+from hidet.graph.ops.matmul import MatmulOp
 
 from .rule import op_shard_rule_search
 from .shard import OpShardSpec, TensorShardSpec, connect, node_comm_cost
@@ -37,13 +38,13 @@ def get_graph_weights(graph: FlowGraph) -> List[Tensor]:
     return list(weights)
 
 
-def generate_rules(g: FlowGraph, num_shards: int) -> Dict[Operator, List[OpShardSpec]]:
+def generate_rules(g: FlowGraph, num_shards: int, force_shard_matmul: bool=False) -> Dict[Operator, List[OpShardSpec]]:
     cache = {}
     ret = {}
     for node in tqdm.tqdm(g.nodes):
         node_str = str(node)
         if node_str not in cache:
-            cache[node_str] = op_shard_rule_search(node, num_shards)
+            cache[node_str] = op_shard_rule_search(node, num_shards, force_shard_matmul)
         ret[node] = cache[node_str]
     return ret
 
@@ -56,7 +57,7 @@ def search_strategy(
     m.verbose = verbose
     m.threads = -1  # Use all available CPU cores
     print("Generating rules for each op...")
-    op_rules = generate_rules(g, num_shards)
+    op_rules = generate_rules(g, num_shards, force_shard_matmul=True)
 
     print("Building ILP...")
     parameters = get_graph_weights(g)

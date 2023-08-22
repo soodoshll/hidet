@@ -20,6 +20,7 @@ from hidet.graph.graph_utils.functors import GraphCloneRewriter
 from .analyze import search_strategy
 from .shard import OpShardSpec, TensorShardSpec, connect
 from .rule import get_tile
+from .utils import dump_netron
 
 
 class CommunicationInjection(GraphCloneRewriter):
@@ -126,6 +127,9 @@ def partition(g: FlowGraph, distributed_config: dict, out_dir: str) -> None:
     with open(os.path.join(out_dir, "scheme.txt"), 'w') as f:
         for node in g.nodes:
             print(node, op_specs[node], file=f)
+    
+    with open(os.path.join(out_dir, "graph.json"), 'w') as f:
+        dump_netron(g, op_specs, f)
 
 
 def _partition(
