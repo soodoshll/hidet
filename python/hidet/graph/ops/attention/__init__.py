@@ -10,3 +10,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from .attention import attention
+from .attention_varlen import attention_varlen

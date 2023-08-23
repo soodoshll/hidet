@@ -23,7 +23,7 @@ from .pool import max_pool2d, max_pool3d, adaptive_max_pool1d, adaptive_max_pool
 from .activation import relu, leaky_relu, sigmoid, hardsigmoid, clip, relu6, prelu, gelu, silu, hardswish
 from .activation import logsigmoid, celu, hardshrink, softplus, softsign, tanhshrink
 from .activation import softshrink, softmax, softmin, hardtanh
-from .attention import attention
+from .attention import attention, attention_varlen
 from .normalize import batch_norm_infer, instance_norm, layer_norm, group_norm, lp_norm
 from .image import resize2d
 from .create import full, arange, linspace, tri
